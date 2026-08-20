@@ -10,7 +10,7 @@ import org.springframework.http.HttpCookie;
 @Configuration
 public class GatewayConfig {
 
-    @Value("${services.auth-url:http://localhost:8089}")
+    @Value("${services.auth-url:http://localhost:8092}")
     private String authServiceUrl;
 
     @Value("${services.book-url:http://localhost:8087}")

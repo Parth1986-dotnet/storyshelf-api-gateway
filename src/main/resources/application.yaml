@@ -6,7 +6,7 @@ spring:
     name: api-gateway
 
 services:
-  auth-url: ${AUTH_SERVICE_URL:http://localhost:8089}
+  auth-url: ${AUTH_SERVICE_URL:http://localhost:8092}
   book-url: ${BOOK_SERVICE_URL:http://localhost:8087}
   order-url: ${ORDER_SERVICE_URL:http://localhost:8090}
   payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8091}

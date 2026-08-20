@@ -9,3 +9,10 @@ services:
       - "8085:8085"
     environment:
       SERVER_PORT: 8085
+      AUTH_SERVICE_URL: http://host.docker.internal:8092
+      BOOK_SERVICE_URL: http://host.docker.internal:8087
+      ORDER_SERVICE_URL: http://host.docker.internal:8090
+      PAYMENT_SERVICE_URL: http://host.docker.internal:8091
+      MONOLITH_SERVICE_URL: http://host.docker.internal:8081
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
