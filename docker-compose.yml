@@ -6,9 +6,9 @@ services:
     container_name: api-gateway
     restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "8086:8086"
     environment:
-      SERVER_PORT: 8085
+      SERVER_PORT: 8086
       AUTH_SERVICE_URL: http://host.docker.internal:8092
       BOOK_SERVICE_URL: http://host.docker.internal:8087
       ORDER_SERVICE_URL: http://host.docker.internal:8090

@@ -20,4 +20,4 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8085
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java --enable-native-access=ALL-UNNAMED -jar app.jar"]

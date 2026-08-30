@@ -1,23 +1,127 @@
 server:
-  port: 8085
+  port: 8086
 
 spring:
   application:
     name: api-gateway
 
-services:
-  auth-url: ${AUTH_SERVICE_URL:http://localhost:8092}
-  book-url: ${BOOK_SERVICE_URL:http://localhost:8087}
-  order-url: ${ORDER_SERVICE_URL:http://localhost:8090}
-  payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8091}
-  monolith-url: ${MONOLITH_SERVICE_URL:http://localhost:8081}
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: ${services.auth-url}
+          predicates:
+            - Path=/api/auth/**
+
+        - id: book-service
+          uri: ${services.book-url}
+          predicates:
+            - Path=/api/books/**
+          filters:
+            - StripPrefix=1
+
+        - id: order-service
+          uri: ${services.order-url}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+            - TokenRelay=
+
+        - id: payment-service
+          uri: ${services.payment-url}
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+            - TokenRelay=
+
+        # Fallback route for monolith - must be last
+        - id: monolith-service
+          uri: ${services.monolith-url}
+          predicates:
+            - Path=/api/**
+          filters:
+            - StripPrefix=1
+
+      # Global CORS configuration
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers:
+              - "*"
+            allow-credentials: true
+            max-age: 3600
+
+      # Default filters applied to all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - Retry=3, GET, POST, BAD_GATEWAY, SERVICE_UNAVAILABLE
+
+      # HTTP client settings for resilience
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 10s
+
+    # Enable access logging
+    http:
+      log-request-details: true
+
+  services:
+    auth-url: ${AUTH_SERVICE_URL:http://localhost:8092}
+    book-url: ${BOOK_SERVICE_URL:http://localhost:8087}
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8090}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8091}
+    monolith-url: ${MONOLITH_SERVICE_URL:http://localhost:8081}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus,metrics,gateway
 
   endpoint:
     health:
       show-details: always
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      services:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+  retry:
+    instances:
+      services:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+  timelimiter:
+    instances:
+      services:
+        timeoutDuration: 5s
+        cancelRunningFuture: true
+
+# Logging configuration for observability
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.netty.http.client: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

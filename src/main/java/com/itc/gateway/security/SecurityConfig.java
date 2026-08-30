@@ -30,9 +30,11 @@ public class SecurityConfig {
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/api/auth/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/books/**").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/payment/**").permitAll()
-                        // 🔥 TEMP: allow everything else
-                        .anyExchange().permitAll()
+                        // Protected routes - require authentication
+                        .pathMatchers("/api/orders/**").authenticated()
+                        .pathMatchers("/api/payments/**").authenticated()
+                        // Secure by default - deny all other requests
+                        .anyExchange().denyAll()
                 ).build();
     }
 }
