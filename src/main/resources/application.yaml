@@ -91,6 +91,8 @@ management:
   endpoint:
     health:
       show-details: always
+    gateway:
+      access: read-only
 
 resilience4j:
   circuitbreaker:
