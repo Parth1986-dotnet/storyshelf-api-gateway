@@ -5,6 +5,37 @@ spring:
   application:
     name: api-gateway
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+
+  # Rate limiting configuration
+  rate-limiting:
+    auth:
+      requests-per-second: ${RATE_LIMIT_AUTH_RPS:20}
+      burst-capacity: ${RATE_LIMIT_AUTH_BURST:40}
+    public:
+      requests-per-second: ${RATE_LIMIT_PUBLIC_RPS:10}
+      burst-capacity: ${RATE_LIMIT_PUBLIC_BURST:20}
+
+  # Disable Spring Cloud Gateway's auto-configured Redis rate limiter
+  # since we configure rate limiters explicitly per route
+  spring:
+    cloud:
+      gateway:
+        redis-rate-limiter:
+          enabled: false
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Set JWT_ISSUER_URI env var to your auth server (e.g. http://localhost:8092/realms/bookstore)
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8092}
+
   cloud:
     gateway:
       routes:
@@ -12,6 +43,11 @@ spring:
           uri: ${services.auth-url}
           predicates:
             - Path=/api/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@publicRoutesRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         - id: book-service
           uri: ${services.book-url}
@@ -19,6 +55,10 @@ spring:
             - Path=/api/books/**
           filters:
             - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@publicRoutesRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         - id: order-service
           uri: ${services.order-url}
@@ -27,6 +67,10 @@ spring:
           filters:
             - StripPrefix=1
             - TokenRelay=
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@authRoutesRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         - id: payment-service
           uri: ${services.payment-url}
@@ -35,6 +79,10 @@ spring:
           filters:
             - StripPrefix=1
             - TokenRelay=
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@authRoutesRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         # Fallback route for monolith - must be last
         - id: monolith-service
@@ -43,6 +91,10 @@ spring:
             - Path=/api/**
           filters:
             - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                rate-limiter: "#{@authRoutesRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
       # Global CORS configuration
       globalcors:
@@ -57,7 +109,14 @@ spring:
               - DELETE
               - OPTIONS
             allowed-headers:
-              - "*"
+              - "Authorization"
+              - "Content-Type"
+              - "X-Requested-With"
+              - "Accept"
+              - "Origin"
+            exposed-headers:
+              - "X-Total-Count"
+              - "X-Request-Id"
             allow-credentials: true
             max-age: 3600
 
@@ -65,11 +124,21 @@ spring:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
         - Retry=3, GET, POST, BAD_GATEWAY, SERVICE_UNAVAILABLE
+        # Strip headers clients could use to spoof identity — gateway sets these itself
+        - RemoveRequestHeader=X-User-Id
+        - RemoveRequestHeader=X-User-Email
+        - RemoveRequestHeader=X-User-Roles
+        - RemoveRequestHeader=X-Internal-Auth
+        # Reject payloads larger than 5MB
+        - name: RequestSize
+          args:
+            maxSize: 5MB
 
       # HTTP client settings for resilience
       httpclient:
         connect-timeout: 5000
         response-timeout: 10s
+        max-header-size: 8KB
 
     # Enable access logging
     http:
@@ -82,17 +151,28 @@ spring:
     payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8091}
     monolith-url: ${MONOLITH_SERVICE_URL:http://localhost:8081}
 
+
 management:
+  # Expose actuator on a separate internal port — not routed through the gateway
+  server:
+    port: ${MANAGEMENT_PORT:9090}
+
   endpoints:
     web:
       exposure:
+        # Only expose what's needed; gateway endpoint for route inspection
         include: health,info,prometheus,metrics,gateway
+      base-path: /actuator
 
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
     gateway:
       access: read-only
+
+  # Require authentication for sensitive actuator endpoints
+  security:
+    enabled: true
 
 resilience4j:
   circuitbreaker:

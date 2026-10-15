@@ -58,6 +58,26 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- WireMock for stubbing downstream services -->
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>3.9.1</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- JWT validation via OAuth2 Resource Server -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+		</dependency>
+
+		<!-- Redis for distributed rate limiting -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+		</dependency>
+
 		<!-- Resilience4j for circuit breaker, retry, rate limiter -->
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>

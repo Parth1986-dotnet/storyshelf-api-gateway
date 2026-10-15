@@ -18,6 +18,6 @@ WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
 
-EXPOSE 8085
+EXPOSE 8086
 
 ENTRYPOINT ["sh", "-c", "java --enable-native-access=ALL-UNNAMED -jar app.jar"]
